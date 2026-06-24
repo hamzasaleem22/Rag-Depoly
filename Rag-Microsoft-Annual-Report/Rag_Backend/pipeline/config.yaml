@@ -1,0 +1,57 @@
+pdf:
+  path: "Microsoft 2025 Annual Report.pdf"
+
+embeddings:
+  model: "sentence-transformers/all-MiniLM-L6-v2"
+  device: "cpu"
+  normalize_embeddings: true
+
+chunking:
+  chunk_size: 1500
+  chunk_overlap: 250
+  separators:
+    - "\n\n"
+    - "\n"
+    - "."
+    - " "
+
+retriever:
+  type: "mmr"
+  k: 10
+  fetch_k: 20
+  lambda_mult: 0.5
+
+reranker:
+  model: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+  top_k: 5
+
+llm:
+  provider: "google"
+  model: "gemini-2.0-flash-lite"
+  temperature: 0.2
+  top_p: 0.9
+  max_output_tokens: 4096
+  retry_attempts: 3
+  retry_min_wait: 2
+  openai_base_url: null
+
+cache:
+  enabled: true
+  backend: "memory"
+  max_size: 100
+  ttl_seconds: 3600
+
+server:
+  host: "0.0.0.0"
+  port: 8000
+  cors_origins: ["*"]
+  log_level: "info"
+
+prompt:
+  system: |
+    You are a financial analyst assistant. Answer questions based ONLY on the provided context.
+    If the context doesn't contain the answer, say "I cannot find this information in the document."
+    Cite the page numbers from the metadata when possible.
+    Context:
+    {context}
+  human: "{question}"

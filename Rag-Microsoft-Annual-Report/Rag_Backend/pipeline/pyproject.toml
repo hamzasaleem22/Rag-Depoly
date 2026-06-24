@@ -1,0 +1,50 @@
+[project]
+name = "rag-pipeline"
+version = "0.2.0"
+description = "Production-ready RAG pipeline for financial document Q&A"
+requires-python = ">=3.11"
+dependencies = [
+    "langchain>=0.3.0",
+    "langchain-community>=0.3.0",
+    "langchain-google-genai>=2.0.0",
+    "langchain-huggingface>=0.1.0",
+    "langchain-text-splitters>=0.3.0",
+    "langchain-core>=0.3.0",
+    "pymupdf>=1.24.0",
+    "faiss-cpu>=1.9.0",
+    "sentence-transformers>=3.0.0",
+    "camelot-py[cv]>=0.11.0",
+    "google-generativeai>=0.8.0",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.32.0",
+    "python-dotenv>=1.0.0",
+    "pyyaml>=6.0.0",
+    "diskcache>=5.6.0",
+    "tenacity>=9.0.0",
+    "pydantic>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.6.0",
+    "mypy>=1.11.0",
+    "coverage>=7.0.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

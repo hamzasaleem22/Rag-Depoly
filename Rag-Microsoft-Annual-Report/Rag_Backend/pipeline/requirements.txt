@@ -1,0 +1,13 @@
+langchain
+langchain-community
+langchain-google-genai
+langchain-huggingface
+pymupdf
+faiss-cpu
+sentence-transformers
+camelot-py[cv]
+google-generativeai
+fastapi
+uvicorn
+python-dotenv
+nest-asyncio
