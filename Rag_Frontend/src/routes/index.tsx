@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import {
   Send,
@@ -34,6 +35,25 @@ export const Route = createFileRoute("/")({
 
 const API_URL = "http://localhost:8000/chat";
 
+// localStorage is unavailable during SSR (Node.js). Always guard with this helper.
+const getStoredKey = (): string =>
+  typeof window !== "undefined" ? localStorage.getItem("llm_api_key") ?? "" : "";
+
+/** Detect provider name from key prefix — mirrors the backend logic. */
+const detectProvider = (key: string): string | null => {
+  if (!key) return null;
+  if (key.startsWith("AIza")) return "Google Gemini";
+  if (key.startsWith("sk-ant-")) return "Anthropic Claude";
+  if (key.startsWith("sk-")) return "OpenAI";
+  return null;
+};
+
+const PROVIDER_COLORS: Record<string, string> = {
+  google: "bg-blue-500/20 text-blue-400 border-blue-500/40",
+  anthropic: "bg-orange-500/20 text-orange-400 border-orange-500/40",
+  openai: "bg-emerald-500/20 text-emerald-400 border-emerald-500/40",
+};
+
 type Feedback = "up" | "down" | null;
 type Message = {
   id: string;
@@ -41,6 +61,7 @@ type Message = {
   content: string;
   timestamp: Date;
   feedback?: Feedback;
+  provider?: string | null;
 };
 
 const formatTime = (d: Date) =>
@@ -51,12 +72,14 @@ function Index() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [apiKey, setApiKey] = useState("");
+  const [apiKey, setApiKey] = useState(() => getStoredKey());
   const [showApiKey, setShowApiKey] = useState(false);
   const [showKeyText, setShowKeyText] = useState(false);
+  const [apiKeyDraft, setApiKeyDraft] = useState(() => getStoredKey());
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const keyBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -97,7 +120,15 @@ function Index() {
         body: JSON.stringify(body),
         signal: controller.signal,
       });
-      if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+      if (!res.ok) {
+        // Try to extract the structured detail message from the backend.
+        let errMsg = `Request failed: ${res.status}`;
+        try {
+          const errData = await res.json();
+          if (errData?.detail) errMsg = errData.detail;
+        } catch (_) { /* ignore parse errors */ }
+        throw new Error(errMsg);
+      }
       const data = await res.json();
       const reply =
         typeof data === "string"
@@ -111,6 +142,7 @@ function Index() {
           content: String(reply),
           timestamp: new Date(),
           feedback: null,
+          provider: data.provider ?? null,
         },
       ]);
     } catch (err) {
@@ -230,8 +262,13 @@ function Index() {
           <div className="flex items-center gap-2">
             <div className="relative">
               <button
+                ref={keyBtnRef}
                 type="button"
-                onClick={() => setShowApiKey(!showApiKey)}
+                onClick={() => {
+                  const next = !showApiKey;
+                  setShowApiKey(next);
+                  if (next) setApiKeyDraft(getStoredKey());
+                }}
                 title={apiKey ? "API key set" : "Set API key"}
                 className={`flex h-9 w-9 items-center justify-center rounded-full border-2 transition-all hover:-translate-y-0.5 ${
                   apiKey
@@ -241,31 +278,89 @@ function Index() {
               >
                 <Key className="h-4 w-4" />
               </button>
-              {showApiKey && (
-                <div className="absolute right-0 top-12 z-50 w-80 rounded-2xl border-2 border-border bg-card p-4 shadow-2xl animate-fade-in-up">
-                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Your Gemini API Key
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type={showApiKey ? "text" : "password"}
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      placeholder="AIzaSy..."
-                      className="flex-1 rounded-xl border-2 border-border bg-background px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground/50 outline-none transition-all focus:border-primary"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowApiKey(false)}
-                      className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      <EyeOff className="h-4 w-4" />
-                    </button>
+              {showApiKey && typeof window !== "undefined" && createPortal(
+                <>
+                  {/* Backdrop — closes popup on outside click */}
+                  <div
+                    className="fixed inset-0"
+                    style={{ zIndex: 9998 }}
+                    onClick={() => { setApiKeyDraft(apiKey); setShowApiKey(false); }}
+                  />
+                  {/* Popup panel — always on top of everything */}
+                  <div
+                    style={{
+                      position: "fixed",
+                      zIndex: 9999,
+                      top: (keyBtnRef.current?.getBoundingClientRect().bottom ?? 48) + 8,
+                      right: window.innerWidth - (keyBtnRef.current?.getBoundingClientRect().right ?? window.innerWidth - 16),
+                    }}
+                    className="w-80 rounded-2xl border-2 border-border bg-card p-4 shadow-2xl animate-fade-in-up"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Your LLM API Key
+                    </p>
+                    {/* Live provider detection */}
+                    {apiKeyDraft.trim() && (
+                      <p className="mb-2 text-[11px] font-semibold">
+                        Detected provider:{" "}
+                        <span className="text-primary">
+                          {detectProvider(apiKeyDraft.trim()) ?? "Unknown — check key format"}
+                        </span>
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <input
+                        autoFocus
+                        type={showKeyText ? "text" : "password"}
+                        value={apiKeyDraft}
+                        onChange={(e) => setApiKeyDraft(e.target.value)}
+                      placeholder="AIzaSy… / sk-ant-… / sk-… (blank = server default)"
+                        className="flex-1 rounded-xl border-2 border-border bg-background px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground/50 outline-none transition-all focus:border-primary"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowKeyText(!showKeyText)}
+                        className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                        title={showKeyText ? "Hide key" : "Show key"}
+                      >
+                        {showKeyText ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    <div className="mt-3 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const trimmed = apiKeyDraft.trim();
+                          setApiKey(trimmed);
+                          if (typeof window !== "undefined") {
+                            if (trimmed) {
+                              localStorage.setItem("llm_api_key", trimmed);
+                            } else {
+                              localStorage.removeItem("llm_api_key");
+                            }
+                          }
+                          setShowApiKey(false);
+                          toast.success(trimmed ? "API key saved!" : "Using server default key.");
+                        }}
+                        className="flex-1 rounded-xl brand-gradient py-1.5 text-xs font-bold text-primary-foreground transition-all hover:opacity-90"
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setApiKeyDraft(apiKey); setShowApiKey(false); }}
+                        className="flex-1 rounded-xl border-2 border-border bg-muted py-1.5 text-xs font-bold text-muted-foreground transition-all hover:text-foreground"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+                      Saved in your browser only. Supports Google Gemini (AIza…), Anthropic Claude (sk-ant-…), and OpenAI (sk-…). Leave blank to use the server's default.
+                    </p>
                   </div>
-                  <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
-                    Your key is sent only to the backend and never stored. Leave empty to use the server's default key.
-                  </p>
-                </div>
+                </>,
+                document.body
               )}
             </div>
             {messages.length > 0 && (
@@ -506,6 +601,21 @@ function MessageBubble({
         <span className="font-mono text-[10px] text-muted-foreground/60">
           {formatTime(message.timestamp)}
         </span>
+        {isBot && message.provider && (
+          <span
+            className={`ml-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+              PROVIDER_COLORS[message.provider] ?? "bg-muted text-muted-foreground border-border"
+            }`}
+          >
+            {message.provider === "google"
+              ? "Gemini"
+              : message.provider === "anthropic"
+              ? "Claude"
+              : message.provider === "openai"
+              ? "OpenAI"
+              : message.provider}
+          </span>
+        )}
 
         {isBot && (
           <div className="ml-2 flex items-center gap-0.5">
