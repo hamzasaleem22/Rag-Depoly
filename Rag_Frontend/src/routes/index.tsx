@@ -33,7 +33,7 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-const API_URL = "http://localhost:8000/chat";
+const API_URL = import.meta.env.VITE_CHAT_API_URL || "http://localhost:8000/chat";
 
 // localStorage is unavailable during SSR (Node.js). Always guard with this helper.
 const getStoredKey = (): string =>
