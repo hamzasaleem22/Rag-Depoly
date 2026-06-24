@@ -63,7 +63,7 @@ def query(question: str, api_key: str | None = None) -> dict:
     context = format_context(top_docs)
     prompt = get_prompt()
     messages = prompt.format_messages(context=context, question=question)
-    answer = llm_invoke(messages, api_key)
+    answer, provider = llm_invoke(messages, api_key)
 
     sources = [
         {
@@ -73,6 +73,7 @@ def query(question: str, api_key: str | None = None) -> dict:
         }
         for d in top_docs
     ]
-    result = {"answer": answer, "sources": sources}
+    result = {"answer": answer, "sources": sources, "provider": provider}
     cache.set(cache_key, result)
     return result
+

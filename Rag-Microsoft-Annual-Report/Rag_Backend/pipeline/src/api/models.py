@@ -15,6 +15,7 @@ class SourceItem(BaseModel):
 class QueryResponse(BaseModel):
     answer: str
     sources: list[SourceItem]
+    provider: str | None = None   # e.g. "google", "anthropic", "openai"
 
 
 class HealthResponse(BaseModel):
