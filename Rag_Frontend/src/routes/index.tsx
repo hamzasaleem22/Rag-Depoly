@@ -55,6 +55,11 @@ const PROVIDER_COLORS: Record<string, string> = {
 };
 
 type Feedback = "up" | "down" | null;
+type SourceItem = {
+  page?: number | string | null;
+  type?: string | null;
+  content?: string | null;
+};
 type Message = {
   id: string;
   role: "user" | "bot" | "error";
@@ -62,6 +67,7 @@ type Message = {
   timestamp: Date;
   feedback?: Feedback;
   provider?: string | null;
+  sources?: SourceItem[];
 };
 
 const formatTime = (d: Date) =>
@@ -134,6 +140,9 @@ function Index() {
         typeof data === "string"
           ? data
           : data.answer ?? data.response ?? data.reply ?? data.message ?? JSON.stringify(data);
+      const sources: SourceItem[] = Array.isArray(data.sources)
+        ? data.sources.filter((s: SourceItem) => s?.content)
+        : [];
       setMessages((m) => [
         ...m,
         {
@@ -143,6 +152,7 @@ function Index() {
           timestamp: new Date(),
           feedback: null,
           provider: data.provider ?? null,
+          sources,
         },
       ]);
     } catch (err) {
@@ -475,7 +485,7 @@ function Index() {
 
 const SUGGESTED_PROMPTS = [
   { icon: "💰", label: "Revenue & Growth", q: "Summarize Microsoft's total revenue and year-over-year growth in fiscal 2025." },
-  { icon: "☁️", label: "Azure & Cloud", q: "How did Azure and the Intelligent Cloud segment perform in 2025?" },
+  { icon: "✍️", label: "Signatures", q: "Who is the Chairman and Chief Executive Officer that signed this 2025 Annual Report?" },
   { icon: "🤖", label: "AI Strategy", q: "What are Microsoft's key AI initiatives and Copilot milestones for 2025?" },
   { icon: "⚠️", label: "Risk Factors", q: "What are the most important risk factors highlighted in the 2025 annual report?" },
 ];
@@ -541,6 +551,78 @@ function Avatar({ role }: { role: "user" | "bot" }) {
 }
 
 
+function CitationChip({ index, source, inline = false }: { index: number; source: SourceItem; inline?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const chipRef = useRef<HTMLButtonElement>(null);
+
+  const pageLabel = source.page != null ? `p. ${source.page}` : `#${index}`;
+  const snippet = source.content ? source.content.slice(0, 220) : "";
+
+  return (
+    <span className={`relative ${inline ? "inline-flex align-middle mx-0.5" : "inline-block"}`}>
+      <button
+        ref={chipRef}
+        type="button"
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        className={`group flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 font-bold text-primary transition-all hover:border-primary/60 hover:bg-primary/20 hover:shadow-[0_0_12px_oklch(0.66_0.25_5/0.3)] ${
+          inline ? "px-1.5 py-0 text-[10px] h-4" : "px-2.5 py-0.5 text-[11px]"
+        }`}
+      >
+        <span className={`flex items-center justify-center rounded-full bg-primary/20 font-extrabold text-primary group-hover:bg-primary/40 ${
+          inline ? "h-3 w-3 text-[8px]" : "h-4 w-4 text-[10px]"
+        }`}>
+          {index}
+        </span>
+        {!inline && pageLabel}
+      </button>
+
+      {open && (
+        <div
+          className="absolute bottom-full left-0 z-50 mb-2 w-72 rounded-2xl border-2 border-border bg-card p-3 shadow-2xl animate-fade-in-up"
+          onMouseEnter={() => setOpen(true)}
+          onMouseLeave={() => setOpen(false)}
+          style={{ minWidth: "16rem" }}
+        >
+          {/* Header */}
+          <div className="mb-2 flex items-center justify-between">
+            <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-[10px] font-extrabold text-primary">
+                {index}
+              </span>
+              Source
+            </span>
+            <div className="flex items-center gap-2">
+              {source.page != null && (
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+                  Page {source.page}
+                </span>
+              )}
+              {source.type && (
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold capitalize text-muted-foreground">
+                  {source.type}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Snippet */}
+          {snippet && (
+            <p className="text-[12px] leading-relaxed text-foreground/80 line-clamp-5">
+              "{snippet}{source.content && source.content.length > 220 ? "…" : ""}"
+            </p>
+          )}
+
+          {/* Arrow pointer */}
+          <div className="absolute -bottom-2 left-4 h-3 w-3 rotate-45 border-b-2 border-r-2 border-border bg-card" />
+        </div>
+      )}
+    </span>
+  );
+}
+
 function MessageBubble({
   message,
   onCopy,
@@ -584,11 +666,42 @@ function MessageBubble({
           {isUser || isError ? (
             <p className="whitespace-pre-wrap font-sans">{message.content}</p>
           ) : (
-            <div className="md-content">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
-                {message.content}
-              </ReactMarkdown>
-            </div>
+            <>
+              <div className="md-content">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeHighlight]}
+                  components={{
+                    a: ({ node, ...props }) => {
+                      const match = props.href?.match(/^#source-(\d+)$/);
+                      if (match && message.sources) {
+                        const idx = parseInt(match[1], 10);
+                        const source = message.sources[idx - 1];
+                        if (source) {
+                          return <CitationChip index={idx} source={source} inline={true} />;
+                        }
+                      }
+                      return <a {...props} />;
+                    }
+                  }}
+                >
+                  {message.content.replace(/\[(?:Source\s*)?(\d+)\](?!\()/gi, '[$1](#source-$1)')}
+                </ReactMarkdown>
+              </div>
+              {/* --- Citations --- */}
+              {message.sources && message.sources.length > 0 && (
+                <div className="mt-3 border-t border-border/50 pt-3">
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                    Sources
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {message.sources.map((src, i) => (
+                      <CitationChip key={i} index={i + 1} source={src} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
