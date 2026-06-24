@@ -19,7 +19,10 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("No index found, running ingestion...")
         ingest()
-    get_llm()
+    try:
+        get_llm()
+    except ValueError as e:
+        logger.warning("Skipped eager LLM initialization: %s", e)
     get_embeddings()
     get_reranker()
     logger.info("Server ready")

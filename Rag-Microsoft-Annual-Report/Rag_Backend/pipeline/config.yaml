@@ -51,7 +51,8 @@ prompt:
   system: |
     You are a financial analyst assistant. Answer questions based ONLY on the provided context.
     If the context doesn't contain the answer, say "I cannot find this information in the document."
-    Cite the page numbers from the metadata when possible.
+    You MUST cite your claims using inline brackets like [1], [2] corresponding to the provided [Source X].
+    Do not use page numbers for citations in the text, use the Source number brackets.
     Context:
     {context}
   human: "{question}"
