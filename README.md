@@ -26,6 +26,12 @@
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat" alt="License">
 </p>
 
+<div align="center">
+  <a href="https://www.loom.com/share/9681edb4611d4484bd8a5a8d4c16e40d" target="_blank">
+    <img src="https://img.shields.io/badge/🎥-Watch%20Demo%20Video-FF6363?style=for-the-badge&logo=loom&logoColor=white" alt="Demo Video">
+  </a>
+</div>
+
 ---
 
 ## Features
@@ -107,7 +113,7 @@ User Question → MMR Retrieve (k=10) → Rerank (top-5) → LLM → Grounded An
 ### Backend
 
 ```bash
-cd Rag-Microsoft-Annual-Report/Rag_Backend/pipeline
+cd backend/pipeline
 
 python3 -m venv venv
 source venv/bin/activate
@@ -126,7 +132,7 @@ The backend runs on **`http://localhost:8000`**.
 ### Frontend
 
 ```bash
-cd Rag_Frontend
+cd frontend
 
 npm install
 npm run dev
@@ -191,7 +197,7 @@ Response:
 
 ## Configuration
 
-All runtime settings live in `Rag_Backend/pipeline/config.yaml`:
+All runtime settings live in `backend/pipeline/config.yaml`:
 
 | Section | Key | Default | Description |
 |---------|-----|---------|-------------|
@@ -211,40 +217,39 @@ All runtime settings live in `Rag_Backend/pipeline/config.yaml`:
 
 ```
 Rag-Depoly/
-├── Rag-Microsoft-Annual-Report/
-│   └── Rag_Backend/
-│       └── pipeline/
-│           ├── config.yaml              # Runtime configuration
-│           ├── requirements.txt         # Python dependencies
-│           ├── pyproject.toml           # Package metadata
-│           └── src/
-│               ├── cli.py               # CLI entry point
-│               ├── config.py            # Pydantic config loader
-│               ├── cache.py             # In-memory query cache
-│               ├── pipeline.py          # Orchestrator
-│               ├── api/
-│               │   ├── models.py        # Request/response schemas
-│               │   ├── routes.py        # FastAPI routes
-│               │   └── server.py        # FastAPI app with lifecycle
-│               ├── ingestion/
-│               │   ├── loader.py        # PDF loader (text + tables)
-│               │   ├── chunker.py       # Text splitter
-│               │   └── vectorstore.py   # FAISS index builder
-│               ├── retrieval/
-│               │   ├── embedder.py      # Embedding model
-│               │   ├── retriever.py     # MMR retriever
-│               │   └── reranker.py      # CrossEncoder reranker
-│               └── generation/
-│                   ├── prompt.py        # Prompt templates
-│                   └── llm.py           # LLM client
+├── backend/
+│   └── pipeline/
+│       ├── config.yaml              # Runtime configuration
+│       ├── requirements.txt         # Python dependencies
+│       ├── pyproject.toml           # Package metadata
+│       └── src/
+│           ├── cli.py               # CLI entry point
+│           ├── config.py            # Pydantic config loader
+│           ├── cache.py             # In-memory query cache
+│           ├── pipeline.py          # Orchestrator
+│           ├── api/
+│           │   ├── models.py        # Request/response schemas
+│           │   ├── routes.py        # FastAPI routes
+│           │   └── server.py        # FastAPI app with lifecycle
+│           ├── ingestion/
+│           │   ├── loader.py        # PDF loader (text + tables)
+│           │   ├── chunker.py       # Text splitter
+│           │   └── vectorstore.py   # FAISS index builder
+│           ├── retrieval/
+│           │   ├── embedder.py      # Embedding model
+│           │   ├── retriever.py     # MMR retriever
+│           │   └── reranker.py      # CrossEncoder reranker
+│           └── generation/
+│               ├── prompt.py        # Prompt templates
+│               └── llm.py           # LLM client
 │
-└── Rag_Frontend/
+└── frontend/
     └── src/
         ├── routes/
-        │   └── index.tsx                # Main chat page
+        │   └── index.tsx             # Main chat page
         ├── lib/
-        │   └── config.server.ts         # Server config
-        └── styles.css                   # Tailwind v4 + theme
+        │   └── config.server.ts      # Server config
+        └── styles.css                # Tailwind v4 + theme
 ```
 
 ---
